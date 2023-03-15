@@ -19,17 +19,17 @@
 
 using namespace std;
 
-const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/cpp_scripts/MonteCarloSimulationNPT/MonteCarloSimulationNPT/results/"};
+const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/MonteCarloSimulationNVT/results/"};
 const string init_filename = "xyz.dat";
 
 
-const int Nx = 3; // Number of particles in x direction
-const int Ny = 3; // Number of particles in y direction
-const int Nz = 3; // Number of particles in z direction
+const int Nx = 5; // Number of particles in x direction
+const int Ny = 5; // Number of particles in y direction
+const int Nz = 5; // Number of particles in z direction
 const double d = 1.0; // Atomic radius
 const double l = 3.0 * d; // Lattice spacing for FCC lattice
 const double delta = 0.5 * d; // Maximum displacement
-const int mc_steps = 10; //Number of Monte Carlo steps
+const int mc_steps = 100; //Number of Monte Carlo steps
 const int packing_fraction = 0.5; //Packing fraction
 const int output_steps = 1;
 
@@ -220,7 +220,7 @@ int check_overlap(vector<double> box, vector<vector<double>> positions){
      0: It thre is no overlap.
      */
     int overlap = 0;
-    for (int i {0}; i < 4; i++){
+    for (int i {0}; i < positions.size(); i++){
         for (int j {0}; j < i; j++){
             double dist {distance((positions)[i],(positions[j]), box)};
             if (dist < d){
