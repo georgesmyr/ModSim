@@ -1,6 +1,7 @@
-//  Hard Sphere Monte Carlo Simulation.
+
+//  PairCorrelationNVT
 //
-//  Author: Georgios Smyridis
+//  Created by Georgios Smyridis
 //
 
 #include <iostream>
@@ -19,7 +20,7 @@
 
 using namespace std;
 
-const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/MonteCarloSimulationNPT"};
+const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/PairCorrelationNVT"};
 const string init_filename = "xyz.dat";
 
 // Lattice parameters
@@ -27,16 +28,14 @@ const int Nx = 3;
 const int Ny = 3;
 const int Nz = 3;
 const double d = 1.0; // Atomic radius
-const double l = 1.7 * d; // Lattice spacing for FCC lattice
+const double l = 2 * d; // Lattice spacing for FCC lattice
 
 // Monte Carlo Simulation
-const int mc_steps = 200000;
-const int output_steps = 500;
+const int mc_steps = 1000;
+const int output_steps = 100;
 
 // Maximum Changes
-const double delta = 1 * d; // Maximum displacement
-const double delta_vol = 1; // Maximum volume change
-
+const double delta = 0.2 * d; // Maximum displacement
 
 
 void generate_fcc(){
@@ -57,6 +56,8 @@ void generate_fcc(){
      second line has the coordinates of the box corner in x-direction, and the next for the y- and z- directions
      respectively. The rest of the lines have the x-, y-, and z- coordinates of the hard sheres, and their diameter.
     */
+    
+    cout << "Generating FCC..." << endl;
     
     int N {4 * (Nx - 1) * (Ny - 1) * (Nz - 1)};
     double Lx {(Nx - 1) * l};
@@ -98,6 +99,7 @@ void generate_fcc(){
             }
         }
     }
+    cout << "FCC generated." << endl;
 }
 
 
@@ -120,6 +122,8 @@ void read_data(string file_name, vector<double> *box, vector<vector<double>> *r)
      i.e. the number of particles contained, and its dimensions in the three directions. The rest elements are vectors of which the
      first three elements are the x-,y- and z- coordinates of the hard spheres and the fourth one is the diameter of the sphere.
     */
+    
+    cout << "Reading Data..." << endl;
 
     // Open file to read from.
     ifstream infile;
@@ -146,37 +150,8 @@ void read_data(string file_name, vector<double> *box, vector<vector<double>> *r)
     infile.close();
     
     assert ((*box)[0] == (*r).size());
-}
-
-
-void write_data(int step, vector<double> box, vector<vector<double>> positions){
-    /*
-     Description:
-     -----------
-     This function writes the box parameters and the positions of the sphere i a .dat file adding the step of the simulation  in the name.
-     
-     Input:
-     ------
-     step: Step of the Monte Carlo simulation.
-     box: Vector desrcibing the box.
-     positions: Current positions of the spheres.
-     */
-
-    ofstream outfile( path + "/positions/xyz" + to_string(step) + ".dat");
-    if (!outfile.is_open()) {
-        cerr << "Error: Unable to open output file" << endl;
-        return;
-    }
     
-    outfile << box[0] << endl;
-    outfile << box[1] << endl;
-    outfile << box[2] << endl;
-    outfile << box[3] << endl;
-    
-    for (int i {0}; i < positions.size(); i++){
-        outfile << positions[i][0] << " " << positions[i][1] << " " << positions[i][2] << endl;
-    }
-    outfile.close();
+    cout << "Data read." << endl;
 }
 
 
@@ -295,141 +270,152 @@ int move_particle(vector<double> box, vector<vector<double>> *positions){
 }
 
 
-int change_volume(vector<double> *box, vector<vector<double>> *positions, double betaP){
+void save_RAD(vector<double> histogram, double bin_size, int num){
     /*
      Description:
-     ------------
-     This function initially chooses a random volume change. Then, it rescales the positions of the particles and checks for overlaps.
-     If there are no overlaps, the box vector and the positions of the particles are updated (rescaled).
+     -----------
+     This function saves the radial distribution function histogram in a csv file.
      
      Input:
      ------
-     *box: Pointer that points to the vector that describes the box.
-     *positions: Pointer that points to the vector of particle positions.
-     
-     Output:
-     ------
-     1: If there are no overlaps.
-     0: If there are overlaps.
+     step: Step of the Monte Carlo simulation.
+     box: Vector desrcibing the box.
+     positions: Current positions of the spheres.
      */
-    long unsigned n_particles {(*positions).size()};
-    double dv {(2 * dsfmt_genrand() - 1) * delta_vol};
-    double volume {(*box)[1] * (*box)[2] * (*box)[3]};
-    double new_volume {volume + dv};
-    double scale_factor {pow(new_volume / volume, 1.0/3.0)};
     
-    // Rescale the positions
-    vector<vector<double>> candidate_positions {*positions};
-    for (int i {0}; i < n_particles; i++){
-        for (int j {0}; j < 3; j++){
-            candidate_positions[i][j] *= scale_factor;
-        }
+    cout << "Saving RAD..." << endl;
+
+    ofstream outfile( path + "/results/rad" + to_string(num) + ".csv");
+    if (!outfile.is_open()) {
+        cerr << "Error: Unable to open output file" << endl;
+        return;
     }
     
-    // Check if there is particle overlap
-    if (check_overlap(*box, candidate_positions) == 0){
-        
-        // If there is no overlap, check the accepting criteria
-        double acc = exp( - betaP * (new_volume - volume) + n_particles * log( new_volume / volume) );
-        
-        // If acceptance criterion larger than a random number from 0 to 1,
-        // accept volume change, and update box and positions.
-        if (acc > dsfmt_genrand()){
-            // Accept volume change, update positions and box vector
-            *positions = candidate_positions;
-            for (int i {1}; i < (*box).size(); i++){
-                (*box)[i] *= scale_factor;
-            }
-            return 1;
-        }
-        // If acceptance criterion smaller, do nothing and return 0.
-        else{
-            return 0;
-        }
+    outfile << "density,bin" << endl;
+    for (int i {0}; i < histogram.size(); i++){
+        outfile << histogram.at(i) << "," << (i+1) * bin_size << endl;
     }
-    // If there is overlap, then do nothing and return 0.
-    else{
-        return 0;
-    }
+    cout << "RAD saved." << endl;
 }
+
+
+void calculate_distances(vector<double> box, vector<vector<double>> positions, int num){
+
+    cout << "Calculating distances..." << endl;
+
+    ofstream outfile( path + "/distances/dist" + to_string(num) + ".csv");
+    if (!outfile.is_open()) {
+        cerr << "Error: Unable to open output file" << endl;
+        return;
+    }
+    outfile << "distance" << endl;
+
+    long unsigned n_particles = box[0];
+    for (int i {0}; i < n_particles; i++){
+        for (int j {0}; j < n_particles; j++){
+            if (i != j){
+                outfile << distance(positions[i], positions[j], box) << endl;
+            }
+        }
+    }
+    
+}
+
+void calculate_RAD(vector<double> box, vector<vector<double>> positions, int num){
+    /*
+     Description:
+     -----------
+     This function calculates the radial distribution of a particle configuration inside a box with positions given as an input.
+     It places the values in bins of a histogram and then saves it as a csv file.
+     
+     Input:
+     ------
+     box: Vector describing the box
+     positions: The current positions of all the particles.
+     */
+    
+    cout << "Calculating RAD..." << endl;
+    
+    // Parameter Initialisation
+    double max_distance {box[1] * sqrt(3)}; // The maximum distance between particles is the diagonal of the box
+    int N {int(box[0])}; // Total number of particles in the box
+    double density {N / (box[1] * box[2] * box[3])};
+    int num_bins {50};
+    double bin_size {max_distance / num_bins};
+    
+    // Histogram and normalising factors initialisation
+    vector<double> histogram(num_bins, 0);
+    vector<double> hist_factors(num_bins, 1.0);
+    
+    // We skip the bins that represent distances exclusively inside the hard ball, i.e. smaller than the radius
+    int skip {0};
+    skip = floor(d / (2 * bin_size)) - 1;
+    // Set the normalising parameters for the rest entries
+    for (int i {0}; i > skip; i++){
+        hist_factors[i] = (M_PI * density / 6) * (pow(1 + i * bin_size, 3) - pow(1 + (i-1) * bin_size,3));
+    }
+
+    // Calculate all the distances and place them in the correct bin
+    for (int i {0}; i < box[0]; i++){
+        for (int j {0}; j < i; j++){
+
+            double dist {0};
+            dist = distance(positions[i], positions[j], box);
+            
+            int bin {0};
+            bin = floor(dist / bin_size) - 1;
+            histogram.at(bin) += 1;
+
+        }
+    }
+    
+    // Normalise
+    for (int i {0}; i < num_bins; i++){
+        histogram.at(i) /=  N * hist_factors.at(i);
+        cout << "Bin: " << i << " Value: " << histogram.at(i) << endl;
+    }
+    
+    cout << "RAD calculated." << endl;
+    
+    // Save the histogram in a csv file
+    save_RAD(histogram, bin_size, num);
+}
+
 
 int main(int argc, const char * argv[]) {
     
-    // Open file to write volumes
-    ofstream outfile( path + "/results/results.csv");
-    if (!outfile.is_open()) {
-        cerr << "Error: Unable to open output file" << endl;
-        return 0;
-    }
-    outfile << "betaP,packingfrac,deltaV,rate" << endl;
+    //Initialies random seed
+    dsfmt_seed(time(NULL));
     
-    // Initialisation of parameters
-    dsfmt_seed( time (NULL)); // Initialise random seed.
-    
-    for (int i {0}; i < 250; i++){
-        
-        double betaP {0.1 + i * 0.4};
-        
-        // Initialise box vector and positions.
+    for (int sample {0}; sample < 10; sample++){
+
+        // Initialise box and positions
         vector<double> box {};
         vector<vector<double>> r {};
-
-        // Generate FCC.
-        //generate_fcc();
+        
+        //Generate FCC and read positions
+        generate_fcc();
         read_data(init_filename, &box, &r);
         
-        //Perform Monte Carlo Simulation.
-        long unsigned n_particles = r.size();
+        // Run Monte Carlo Simulation
+        int n_particles {0};
+        n_particles = int(box[0]);
         int accepted_moves {0};
-        int accepted_vols {0};
-        double rate {0}; //Rate of accepting volume change
-        double deltaV {1};
-        double packing_fraction {0};
-        double packing_fraction_sum {0};
-
-        for (int step {0}; step < mc_steps; step ++){
-            
+        for (int step {0}; step < mc_steps; step++){
             for (int n {0}; n < n_particles; n++){
                 accepted_moves += move_particle(box, &r);
-            }
-            accepted_vols += change_volume(&box, &r, betaP);
-            
-            if (step % (output_steps) == 0 and step != 0){
-                
-                rate = double(accepted_vols) / output_steps;
-                
-                double rate = double(accepted_vols)/output_steps;
-                
-                cout << "================ Step: " << step << " ================" << endl;
-                cout << "Move acceptance rate: " << accepted_moves / (n_particles * output_steps) << endl;
-                cout << "Volume change acceptance rate: " << rate << endl;
-                cout << "DeltaV: " << deltaV << endl;
-                //write_data(step, box, r);
-                
-//                if(rate < 0.4){
-//                    deltaV *= 0.9;
-//                } // To ensure that volume acceptance rate remains around half
-//                if(rate > 0.6){
-//                    deltaV *= 1.1;
-//                } // If acceptance is too high or low, we change the deltaV
-//                accepted_vols = 0;
-                
-                if(step >= 150000 && step % (output_steps) == 0){ // This is to ensure that the system has reached equillibrium before we start measuring packing fractions
-                                                           // For all cases of P, the system reaches equillibrium by 150,000 steps, so this doesn't need to change.
-                    packing_fraction = n_particles * M_PI * pow(d, 3) /(6 * box[0] * box[1] * box[2]);
-                    packing_fraction_sum += packing_fraction;
                 }
-                
+            
+            if (step % output_steps  == 0){
+                cout << "================ STEP: " << step << " ================" << endl;
+                cout << "Move acceptance rate: " << double(accepted_moves) / (output_steps * n_particles) << endl;
                 accepted_moves = 0;
-                
             }
-
         }
-        outfile << betaP << "," << packing_fraction_sum / 30 << "," << deltaV << "," << rate << endl;
-
+        
+        // Calculate and save the radial distribution function
+        calculate_RAD(box, r, sample);
+        calculate_distances(box, r, sample);
     }
     return 0;
-
 }
-
-
