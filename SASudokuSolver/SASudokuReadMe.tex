@@ -1,0 +1,77 @@
+\documentclass[11pt]{report}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{amsfonts} 
+
+\begin{document}
+
+\section*{Sudoku Puzzle}
+
+Sudoku is a puzzle that is featured in many popular newspapers the past decades and it is a slight modification of Leonard Euler's puzzle, called "Latin Squares". Its objective is straightforward:
+\\
+
+\textit{Given an $n^2\times n^2$ square grid divided into $n\times n$ distinct squares, the aim is to fill the each cell so that the following three criteria are met:}
+\begin{enumerate}
+	\item \textit{Each row of cells contains the integers 1 through $n^2$ exactly once.}
+	\item \textit{Each column of cells contains the integers 1 though $n^2$ exactly once.}
+	\item \textit{Each $n\times n$ square contains the integers 1 though $n^2$ exactly once.}
+\end{enumerate}
+\textit{The number n, will be referred as the order of the puzzle in this report.}
+\\
+
+One can imagine that it is easy to come up with a valid solution when presented with an empty Sudoku grid. Therefore, in order for the puzzle to be engaging and challenging, it is typical for some of the cels to be pre-filled from the "Sudoku master". The player's aim is then to find a solution, using the fixed pre-filled cells for guidance.
+
+People when they engage in these puzzles, they approach them assuming that there is a unique solution, and they try to come with it using forward chaining logic only. In fact, most define a "good puzzle" as a problem instance that is logic-solvable.
+
+Online one can find all sorts of algorithms that return a solution when provided with a sudoku instance. For many years all of them were, to some degree, dependent on being provided with a problem instance that was designed so that it definitely admits a solution that follows logical steps. However, Sudoku has been proven to be $NP$-complete problem, and thus, there are some initial configurations that cannot be solved in a polynomial time, unless $P=NP$. What this means is that for some sudoku instances, the solution requires also some sort of search.
+
+
+\section*{Simulated Annealing for Sudoku Puzzles}
+
+In this exercise, we apply a method that solves the aforementioned restrictions of the logic-based algorithms, and it's called simulated annealing (SA). The rest of the report has the following structure. First, SA is going to be described in a more general context. Then, we'll see how SA can be applied for the solution of a puzzle like Sudoku, and thereafter we are going to describe in more detail the algorithm that was implemented. Finally, there will be a discussion of how the different control parameters affect the performance of the algorithm and the different phenomena that give rise to.
+
+
+\subsection*{What is simulated annealing?}
+
+Simulated annealing is a metaheuristic to approximate global optimisation in a large search space for an optimisation problem. In simpler terms, it is a probabilistic technique for approximating the global optimum for a given function. This metaheuristic is particularly useful when exact algorithms, like gradient descent or branch-and-bound, are prohibitively expensive in time or computational power. 
+
+\subsection*{Simulated annealing approach for Sudoku}
+
+To adapt the simulated annealing for finding a solution to a Sudoku problem instance, we have to make some definitions. First,
+\begin{itemize}
+	\item Square will refer to the $n\times n$ area of cells in the grid, separated from each other by bold lines. $\text{square}_{r,c}$ will denote the square that is located in row $i$ and column $j$ in the grid of squares.
+	\item The value contained in the cell that is located in the row $r$ and column $c$ of the sudoku grid is going to be denoted $\text{cell}_{i,j}$. If a particular cell is prefilled, then it remains fixed, while otherwise not.
+	\item  A complete grid that meets all the Sudoku requirements will be called optimal.
+\end{itemize}
+
+\subsubsection{Initialisation and generation of candidate solutions}
+
+
+First, we want to randomly generate a candidate solution. To do so, we assign a random value in every non-fixed cell so that every square contains the integers from 1 to $n^2$ exactly once.
+
+During the run, the "neighbourhood operator" chooses two different non-fixed cells in the same square and swaps them. More specifically, the way this is performed is the following:
+\begin{enumerate}
+	\item First, we randomly choose a non-fixed cell, cell$_{i,j}$.
+	\item Then, we randomly choose another non-fixed cell of the same square, cell$_{k,l}\neq$ cell$_{i,j}$.
+	\item We make the swap $\text{cell}_{i,j} \leftrightarrow \text{cell}_{k,l}$.
+\end{enumerate}
+
+This way of initiating a random candidate solution along with the method of generating new ones, has strong advantage. It ensures that the third Sudoku requirement is always satisfied. Therefore, to total search space is:
+\begin{align}
+	\prod_{r=1}^n\prod_{c=1}^nf(r,c)!
+\end{align}
+with $f(r,c)$ being the number of un-fixed cells in the square$_{r,c}$.
+
+
+\subsubsection{Evaluation of candidate solutions}
+
+Now that we have seen how to generate new candidate solutions, we have to also evaluate them. To accomplish that we have to define a cost function, that is, a function that gives a metric of how far from an optimal solution is the current candidate. The optimal solution will be at a global minimum of the cost function, and thus finding an optimal solution comes down to finding a configuration that minimises the cost function. This is where SA will come into play.
+
+The cost function could have different forms. The cost function we choose to use is calculated in the following way. We are looking at each row $i$, and count the number of integers from $1 $ to $n^2$ that are not present in it. We do the same thing for every column $j$. The total cost function is the total sum. The optimal solution with therefore have vanishing cost.
+
+
+\subsubsection{A simulated anne}
+
+
+\end{document}
+
