@@ -20,8 +20,9 @@ class SudokuSolver{
     
 private:
     
-    double BETA {1};
+    double Temperature {100};
     const double COOLING_RATE {0.99};
+    const int MARKOV_CHAIN_REPS = 10;
     int board[BOARD_SIZE][BOARD_SIZE] = {
         {0, 0, 9, 0, 7, 0, 0, 0, 2},
         {0, 0, 0, 0, 0, 8, 4, 0, 0},
@@ -73,6 +74,8 @@ private:
 
     
 public:
+    
+    int CostFunction = 0;
     
     void print_board() {
         /*
@@ -130,7 +133,7 @@ public:
         return randomElement;
     }
 
-    void InitialiseSolution(){
+    void InitSolution(){
         /*
          Description:
          ------------
@@ -194,7 +197,7 @@ public:
         // Pick a random position, not one of the initial ones, and put a random integer in it.
         vector<int> randomPos = {};
         do {
-            randomPos = {(int) round(dsfmt_genrand() * BOARD_SIZE), (int) round(dsfmt_genrand() * BOARD_SIZE)};
+            randomPos = {(int) dsfmt_genrand() * BOARD_SIZE, (int) dsfmt_genrand() * BOARD_SIZE};
         } while(find(FixedPositions.begin(), FixedPositions.end(), randomPos) != FixedPositions.end());
         
         assert (randomPos[0] >= 0 and randomPos[0] <= 8);
@@ -226,121 +229,142 @@ public:
         assert (randomEntry >= 1 and randomEntry <= BOARD_SIZE);
         return randomEntry;
     }
+    
+    
+    int GetCostContribution(int row, int col){
+        /*
+         Description:
+         ------------
+         Calculates the contribution of row and col to the cost function.
+         That is, it counts the number of integers that are not present
+         in row and col.
+         */
+        int CostContribution = 0;
+        
+        unordered_set<int> NotPresentInts = AllPossibleValues;
+        for (int i = 0; i < BOARD_SIZE; ++i){
+            NotPresentInts.erase(board[row][i]);
+        }
+        CostContribution += NotPresentInts.size();
+        
+        NotPresentInts = AllPossibleValues;
+        for (int i = 0; i < BOARD_SIZE; ++i){
+            NotPresentInts.erase(board[i][col]);
+        }
+        CostContribution += NotPresentInts.size();
+        
+        return CostContribution;
+    }
+    
+    
+    int GetCostFunction(){
+        /*
+         Desctiption:
+         ------------
+         Calculates the cost function, or objective function to optimise.
+         It is simply the total number of integers that are not present in
+         each row and columns.
+         */
 
-//    int getCostFunction(){
-//
-//        int duplicates  = 0;
-//        int value = 0;
-//        // Find duplicates in all rows.
-//        for (int row = 0; row < N; ++row){
-//            unordered_set<int> values;
-//            for (int col = 0; col < N; ++col){
-//                value = board[row][col];
-//                if (value != 0 and !values.insert(value).second){
-//                    duplicates += 1;
-//                }
-//            }
-//        }
-//
-//        // Find duplicates in all columns
-//        for (int col = 0; col < N; ++col){
-//            unordered_set<int> values;
-//            for (int row = 0; row < N; ++row){
-//                value = board[row][col];
-//                if (value != 0 and !values.insert(value).second){
-//                    duplicates += 1;
-//                }
-//            }
-//        }
-//        return duplicates;
-//    }
-//
-//    void AcceptOrReject(){
-//
-//        int oldEntry = 0;
-//        int randomX = randomPos[0];
-//        int randomY = randomPos[1];
-//        oldEntry = board[randomX][randomY];
-//        board[randomX][randomY] = randomEntry;
-//
-//        int newCostFunction = getCostFunction();
-//        // Accept or reject the new solution
-//        int dCF = newCostFunction - costFunction;
-//        //cout << "Cost function difference: " << dCF << endl;
-//        if (dCF < 0 or dsfmt_genrand() < exp(- BETA * dCF)){
-//            //cout << "Accepted!" << endl;
-//            costFunction += dCF;
-//        }else{
-//            //cout << "Rejected!" << endl;
-//            board[randomX][randomY] = oldEntry;
-//        }
-//    }
-//
-//    void cooldown(){
-//        BETA *= (1 - COOLING_RATE);
-//    }
-//
-//    bool is_solved(){
-//
-//        // Check if the cost function is zero
-//        if (costFunction != 0){
-//            return false;
-//        }
-//
-//        // Check if there's any zero entry
-//        for (int row = 0; row < N; ++row){
-//            for (int col = 0; col < N; ++col){
-//                if (board[row][col] == 0){
-//                    return false;
-//                }
-//            }
-//        }
-//        int sum = 0;
-//        // Check if the sum in all rows is equal to 45
-//        for (int row = 0; row < N; ++row){
-//            sum = 0;
-//            for (int col = 0; col < N; ++col){
-//                sum += board[row][col];
-//            }
-//            if (sum != 45){
-//                return false;
-//            }
-//        }
-//        // Check if the sum in all columns is equal to 45
-//        for (int col = 0; col < N; ++col){
-//            sum = 0;
-//            for (int row = 0; row < N; ++row){
-//                sum += board[row][col];
-//            }
-//            if (sum != 45){
-//                return false;
-//            }
-//        }
-//        return true;
-//    }
-//
-//    void solve(){
-////        int i = 0;
-//        do{
-//            GenRandomPosition();
-//            GenRandomEntry();
-//            AcceptOrReject();
-//            cooldown();
-////            i += 1;
-//        }while (not is_solved());
-//
-//        cout << "Cost function: " << costFunction <<  endl;
-//        print_board();
-//    }
+        int CostFunction = 0;
+        for (int i = 0; i < BOARD_SIZE; ++i){
+            CostFunction += GetCostContribution(i, i);
+        }
+        return CostFunction;
+    }
     
     
+    void Swap(vector<int> cell1, vector<int> cell2){
+        /*
+         Description:
+         ------------
+         Swaps the values of two cells.
+         */
+        
+        int row1 = cell1[0], col1 = cell1[1];
+        int row2 = cell2[0], col2 = cell2[1];
+        int temp = board[row1][col1];
+        board[row1][col1] = board[row2][col2];
+        board[row2][col2] = temp;
+        
+    }
+        
+    void AttemptSwap(vector<int> cell1, vector<int> cell2){
+        /*
+         Description:
+         ------------
+         Attempts a swap between the values of twe cells. If the cost function
+         is lower the swap is accepted. If the swap leads to higher cost fucntion
+         it is accepted with probability exp(-Δ/T).
+         */
+        
+        int row1 = cell1[0], col1 = cell1[1];
+        int row2 = cell2[0], col2 = cell2[1];
+        
+        // Calculate starting cost function contribution.
+        int CostBefore = GetCostContribution(row1, col1) + GetCostContribution(row2, col2);
+        //cout << "Cost before: " << CostBefore << endl;
+        
+        // Make the swap.
+        Swap(cell1, cell2);
+        
+        // Calculate new cost function contribution and change (delta).
+        int CostAfter = GetCostContribution(row1, col1) + GetCostContribution(row2, col2);
+        int DeltaCost = CostAfter - CostBefore;
+        
+        //cout << "Cost after: " << CostAfter << endl;
+        //cout << "Delta: " << DeltaCost << endl;
+        
+        // Accept or reject.
+        double randNum = dsfmt_genrand();
+        //cout << "Random num: " << randNum << endl;
+        //cout << "Threshold: " << exp(-DeltaCost/Temperature) << endl;
+        if (DeltaCost > 0 and randNum > exp(-DeltaCost/Temperature)){
+            Swap(cell1, cell2);
+        }else{
+            CostFunction += DeltaCost;
+        }
+    }
+    
+    
+    void Cooldown(){
+        Temperature *= COOLING_RATE;
+    }
+    
+    
+    
+
+    void Solve(){
+
+        // 1. Initialise random solution.
+        InitSolution();
+        CostFunction = GetCostFunction();
+
+        while (CostFunction != 0 && Temperature > 0){
+            
+            for (int i = 0; i < 14; ++i){
+                // 2. Choose random non-fixed cell in grid.
+                vector<int> cell1 = {};
+                do{
+                    cell1 = GenRanPosInGrid();
+                }while(find(FixedPositions.begin(), FixedPositions.end(), cell1) != FixedPositions.end());
+
+                // 3. Choose random non-fixed cell in the same square
+                vector<int> square = GetSquare(cell1);
+                vector<int> cell2 = {};
+                do{
+                    cell2 = GenRanPosInSquare(square);
+                }while(find(FixedPositions.begin(), FixedPositions.end(), cell2) != FixedPositions.end());
+                
+                AttemptSwap(cell1, cell2);
+            }
+            cout << "Cost Function: " << CostFunction << endl;
+            Cooldown();
+        }
+    }
 };
 
-//vector<list<int>> init(){
-//    vector<int[2]> temp = {};
-//    temp.push_back([1,2]);
-//    return temp;
-//}
+
 
 int main(int argc, const char * argv[]) {
     
@@ -348,16 +372,10 @@ int main(int argc, const char * argv[]) {
 
     SudokuSolver sudoku;
     //sudoku.print_board();
-    //sudoku.InitialiseSolution();
-    //sudoku.GenRandomPosition();
+    sudoku.InitSolution();
     
-    unordered_set<int> vals = {1,2,3,4,5,6,7,8,9};
-    int entry = 0;
-    do{
-        entry = sudoku.GenRandomEntry();
-        cout << entry << endl;
-        vals.erase(entry);
-    }while(vals.size() > 0);
+    sudoku.Solve();
+
     
     return 0;
 }
