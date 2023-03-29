@@ -1,6 +1,7 @@
 
 
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -13,17 +14,39 @@
 
 using namespace std;
 
+string path = "/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/SASudokuSolver/performance/";
 const int BOARD_SIZE = 9;
 const int N = sqrt(BOARD_SIZE);
+
+double get_std(vector<int> set){
+    /*
+     Description:
+     -----------
+     Calculates the standard diviatioin for a set of integers.
+     */
+    double mean = 0, std = 0, sum = 0;
+    
+    for (int i = 0; i < set.size(); ++i){
+        sum += set[i];
+    }
+    mean = sum / set.size();
+    sum = 0;
+    for (int i = 0; i < set.size(); ++i){
+        sum += pow((mean - set[i]), 2);
+    }
+    std = sum / set.size();
+    return std;
+}
 
 class SudokuSolver{
     
 private:
     
-    double Temperature {100};
-    const double COOLING_RATE {0.99};
-    const int MARKOV_CHAIN_REPS = 10;
-    int board[BOARD_SIZE][BOARD_SIZE] = {
+    double Temperature {20};
+    double InitTemperature = Temperature;
+    double COOLING_RATE {0.99};
+    int MARKOV_CHAIN_REPS = 10;
+    vector<vector<int>> board = {
         {0, 0, 9, 0, 7, 0, 0, 0, 2},
         {0, 0, 0, 0, 0, 8, 4, 0, 0},
         {0, 0, 0, 2, 0, 0, 5, 7, 0},
@@ -70,19 +93,26 @@ private:
         }
         return FixedPos;
     }
-    const vector<vector<int>> FixedPositions = GetFixedPositions();
+    vector<vector<int>> FixedPositions = GetFixedPositions();
 
     
 public:
     
-    int CostFunction = 0;
+    void SetBoard(vector<vector<int>> boardd){
+        board = boardd;
+    }
     
+    void Cooldown(){
+        Temperature *= COOLING_RATE;
+    }
+        
     void print_board() {
         /*
          Description:
          ------------
          Prints the grid with the current values of each cell.
          */
+        cout << "---------------------" << endl;
         for (int i = 0; i < BOARD_SIZE; i++) {
             if (i % N == 0 && i != 0) {
                 cout << "---------------------" << endl;
@@ -95,9 +125,54 @@ public:
             }
             cout << endl;
         }
+        cout << "---------------------" << endl;
     }
     
-    void PreFill(){}
+    void PreFill(string level){
+        
+        if (level == "easy"){
+            board = {
+                {0, 7, 0, 0, 0, 0, 6, 0, 0},
+                {9, 0, 0, 0, 0, 3, 0, 0, 1},
+                {0, 6, 0, 0, 0, 8, 7, 3, 0},
+                {0, 0, 0, 0, 9, 0, 0, 0, 0},
+                {0, 8, 0, 0, 0, 0, 0, 4, 0},
+                {0, 0, 0, 0, 5, 0, 0, 0, 0},
+                {0, 1, 5, 4, 0, 0, 0, 9, 0},
+                {4, 0, 0, 0, 0, 0, 0, 0, 7},
+                {0, 0, 3, 0, 0, 0, 0, 0, 0}
+            };
+            
+        }else if (level == "medium"){
+            board = {
+                {2, 0, 0, 7, 0, 8, 0, 0, 5},
+                {0, 8, 4, 0, 0, 0, 1, 7, 0},
+                {0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 6, 0, 0, 0, 0, 0, 1, 0},
+                {0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 2, 0, 0, 0, 0, 0, 4, 0},
+                {0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 5, 7, 0, 0, 0, 3, 8, 0},
+                {3, 0, 0, 1, 0, 9, 0, 0, 6}
+            };
+            
+        }else if (level == "hard"){
+            board = {
+                {0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0, 3, 0, 8, 5},
+                {0, 0, 1, 0, 2, 0, 0, 0, 0},
+                {0, 0, 0, 5, 0, 7, 0, 0, 0},
+                {0, 0, 4, 0, 0, 0, 1, 0, 0},
+                {0, 9, 0, 0, 0, 0, 0, 0, 0},
+                {5, 0, 0, 0, 0, 0, 0, 7, 3},
+                {0, 0, 2, 0, 1, 0, 0, 0, 0},
+                {0, 0, 0, 0, 4, 0, 0, 0, 9}
+            };
+        }else{
+            return;
+        }
+            FixedPositions = GetFixedPositions();
+    }
     
     vector<int> GetSquare(vector<int> cell){
         /*
@@ -133,6 +208,7 @@ public:
         return randomElement;
     }
 
+    vector<vector<int>> InitialSolution = {};
     void InitSolution(){
         /*
          Description:
@@ -165,11 +241,10 @@ public:
                 // so that all of them are unique.
                 for (int row = rowLow; row < rowHigh + 1; ++row){
                     for (int col = colLow; col < colHigh + 1; ++col){
-                        //cout << row << " - " << col << endl;
+
                         // If the cell is fixed, go to the next.
                         vector<int> pos = {row, col};
                         if (find(FixedPositions.begin(), FixedPositions.end(), pos) != FixedPositions.end()){
-                            //cout << "Cannot change entry of pre-filled cell (" << row << "," << col << "). It remains: " << board[row][col] << endl;
                             continue;
                         }
 
@@ -178,13 +253,13 @@ public:
                             int randomInteger = GetRandomElement(AllowedValues);
                             AllowedValues.erase(randomInteger);
                             board[row][col] = randomInteger;
-                            //cout << "Setting cell (" << row << "," << col << ") = " << randomInteger << endl;
                         }
                     }
                 }
             }
         }
-        print_board();
+        InitialSolution = board;
+        //print_board();
     }
     
     vector<int> GenRanPosInGrid(){
@@ -196,8 +271,11 @@ public:
         
         // Pick a random position, not one of the initial ones, and put a random integer in it.
         vector<int> randomPos = {};
+        int row = 0, col = 0;
         do {
-            randomPos = {(int) dsfmt_genrand() * BOARD_SIZE, (int) dsfmt_genrand() * BOARD_SIZE};
+            row = int(dsfmt_genrand() * BOARD_SIZE);
+            col = int(dsfmt_genrand() * BOARD_SIZE);
+            randomPos = {row, col};
         } while(find(FixedPositions.begin(), FixedPositions.end(), randomPos) != FixedPositions.end());
         
         assert (randomPos[0] >= 0 and randomPos[0] <= 8);
@@ -207,13 +285,21 @@ public:
     }
     
     vector<int> GenRanPosInSquare(vector<int> square){
+        /*
+         Description:
+         ------------
+         Generates random position of cell inside a specific square.
+         */
         
         int rowLow = square[0] * N, rowHigh = (square[0] + 1) * N - 1;
         int colLow = square[1] * N, colHigh = (square[1] + 1) * N - 1;
-        
-        int row = rowLow + round(dsfmt_genrand() * (rowHigh - rowLow));
-        int col = colLow + round(dsfmt_genrand() * (colHigh - colLow));
+        int row = -1, col = -1;
         vector<int> pos = {row, col};
+        do{
+            row = rowLow + round(dsfmt_genrand() * (rowHigh - rowLow));
+            col = colLow + round(dsfmt_genrand() * (colHigh - colLow));
+            pos = {row, col};
+        }while(find(FixedPositions.begin(), FixedPositions.end(), pos) != FixedPositions.end());
         
         return pos;
     }
@@ -256,6 +342,8 @@ public:
         return CostContribution;
     }
     
+    int CostFunction = 0;
+    vector<int> CostFunctions = {};
     
     int GetCostFunction(){
         /*
@@ -303,7 +391,6 @@ public:
         
         // Calculate starting cost function contribution.
         int CostBefore = GetCostContribution(row1, col1) + GetCostContribution(row2, col2);
-        //cout << "Cost before: " << CostBefore << endl;
         
         // Make the swap.
         Swap(cell1, cell2);
@@ -312,13 +399,8 @@ public:
         int CostAfter = GetCostContribution(row1, col1) + GetCostContribution(row2, col2);
         int DeltaCost = CostAfter - CostBefore;
         
-        //cout << "Cost after: " << CostAfter << endl;
-        //cout << "Delta: " << DeltaCost << endl;
-        
         // Accept or reject.
         double randNum = dsfmt_genrand();
-        //cout << "Random num: " << randNum << endl;
-        //cout << "Threshold: " << exp(-DeltaCost/Temperature) << endl;
         if (DeltaCost > 0 and randNum > exp(-DeltaCost/Temperature)){
             Swap(cell1, cell2);
         }else{
@@ -327,41 +409,96 @@ public:
     }
     
     
-    void Cooldown(){
-        Temperature *= COOLING_RATE;
+    void SetControlParameters(double InitTemp, double CoolingRate, int MarkovChainReps){
+        /*
+         Description:
+         ------------
+         Sets the control parameters.
+         */
+        Temperature = InitTemp;
+        InitTemperature = InitTemp;
+        COOLING_RATE = CoolingRate;
+        MARKOV_CHAIN_REPS = MarkovChainReps;
     }
     
     
+    void SetIdealControlParameters(){
+        /*
+         Description:
+         ------------
+         Sets ideal ini parameters, i.e. Temperature so that approximately 80% of the swaps are accepted,
+         cooling rate 0.9, and Markov chain reps so that there's a goood chance of every non-fixed pair
+         be selected at least once in each chain.
+         */
+        cout << "Setting ideal control parameters.." << endl;
+        
+        // Find ideal temperature.
+        vector<int> cost_contributions = {};
+        const int TRIALS = 100;
+        vector<int> cell1 = {}, square = {}, cell2 = {};
+        int temp_entry = 0;
+        for (int trial = 0; trial < TRIALS; ++trial){
+            cell1 = GenRanPosInGrid();
+            square = GetSquare(cell1);
+            do{
+                cell2 = GenRanPosInSquare(square);
+            }while (cell1 == cell2);
+        
+            temp_entry = board[cell1[0]][cell1[1]];
+            board[cell1[0]][cell1[1]] = board[cell2[0]][cell2[1]];
+            board[cell2[0]][cell2[1]] = temp_entry;
+            
+            cost_contributions.push_back(GetCostFunction());
+        }
+        double std = get_std(cost_contributions);
+        Temperature = std;
+        cout << std << endl;
+        // Revert back to the initial random solution
+        board = InitialSolution;
+        
+        // Set ideal Markov Chain Reps
+        int NumNonFixed = pow(BOARD_SIZE, 2) - FixedPositions.size(); // Number of non-fixed cells.
+        MARKOV_CHAIN_REPS = pow(NumNonFixed, 2);
+        cout << "Markov chain length: " << MARKOV_CHAIN_REPS << endl;
+        
+        // Set ideal cooling rate
+        COOLING_RATE = 0.99;
+        
+    }
     
+    
+    vector<double> PerformanceState = {};
+
 
     void Solve(){
-
+        int steps = 0;
         // 1. Initialise random solution.
-        InitSolution();
+        SetBoard(InitialSolution);
         CostFunction = GetCostFunction();
 
-        while (CostFunction != 0 && Temperature > 0){
+        while (CostFunction != 0 && Temperature > 0 && steps < 100000){
+            // Markov chain iteration
+            steps += 1;
+            // 2. Choose random non-fixed cell in grid.
+            vector<int> cell1 = GenRanPosInGrid();
             
-            for (int i = 0; i < 14; ++i){
-                // 2. Choose random non-fixed cell in grid.
-                vector<int> cell1 = {};
-                do{
-                    cell1 = GenRanPosInGrid();
-                }while(find(FixedPositions.begin(), FixedPositions.end(), cell1) != FixedPositions.end());
-
-                // 3. Choose random non-fixed cell in the same square
-                vector<int> square = GetSquare(cell1);
-                vector<int> cell2 = {};
-                do{
-                    cell2 = GenRanPosInSquare(square);
-                }while(find(FixedPositions.begin(), FixedPositions.end(), cell2) != FixedPositions.end());
-                
-                AttemptSwap(cell1, cell2);
+            // 3. Choose random non-fixed cell in the same square
+            vector<int> square = GetSquare(cell1);
+            vector<int> cell2 = GenRanPosInSquare(square);
+             
+            // 4. Apply neighbourhood operator and accept or reject.
+            AttemptSwap(cell1, cell2);
+            CostFunctions.push_back(CostFunction);
+            //cout << "Cost Function: " << CostFunction << endl;
+            if (steps % MARKOV_CHAIN_REPS == 0){
+                Cooldown();
             }
-            cout << "Cost Function: " << CostFunction << endl;
-            Cooldown();
         }
+        cout << "Temperature: " << InitTemperature << "|Cooldown Rate: " << COOLING_RATE <<
+                "|Markov Length: " << MARKOV_CHAIN_REPS << "|Steps: " << steps << "|Cost: " << CostFunction << endl;
+        PerformanceState = {InitTemperature, COOLING_RATE, (double) MARKOV_CHAIN_REPS, (double) steps, (double) CostFunction};
     }
+    
 };
 
 
@@ -369,13 +506,53 @@ public:
 int main(int argc, const char * argv[]) {
     
     dsfmt_seed( time (NULL)); // Initialise random seed.
-
-    SudokuSolver sudoku;
-    //sudoku.print_board();
-    sudoku.InitSolution();
     
-    sudoku.Solve();
+    SudokuSolver s;
+    s.PreFill("medium");
+    s.print_board();
+    s.InitSolution();
+    s.print_board();
+    //s.SetIdealControlParameters();
+    s.SetControlParameters(50, 0.99, 10);
+    s.Solve();
 
+    ofstream outfile(path + "energies_medium.csv");
+    if (!outfile.is_open()) {
+        cerr << "Error: Unable to open output file" << endl;
+        return  0;
+    }
+    outfile << "Energy" << endl;
+    for (auto& cost : s.CostFunctions){
+        outfile << cost << endl;
+    }
+
+
+//    vector<double> temperatures = {1, 2.5, 5, 10, 25};
+//    vector<double> cooling_rates = {0.25, 0.5, 0.75, 0.9, 0.99};
+//    vector<double> mc_lengths = {10, 25, 50, 100};
+//
+//    for (int i = 0; i < 10; ++i){
+//        ofstream outfile(path + "performance" + to_string(i) + ".csv");
+//        if (!outfile.is_open()) {
+//            cerr << "Error: Unable to open output file" << endl;
+//            return  0;
+//        }
+//        outfile << "InitTemp,CoolingRate,MarkovLength,Steps,CostFunction" << endl;
+//
+//        SudokuSolver sudoku;
+//        sudoku.InitSolution();
+//        for (auto& temp: temperatures){
+//            for (auto& cr : cooling_rates){
+//                for (auto& ml: mc_lengths){
+//                    sudoku.SetControlParameters(temp, cr, ml);
+//                    sudoku.Solve();
+//                    vector<double> perf = sudoku.PerformanceState;
+//                    outfile << perf[0] << "," << perf[1] << "," << perf[2] << "," << perf[3] << "," << perf[4] << endl;
+//                }
+//            }
+//        }
+//    }
     
+
     return 0;
 }

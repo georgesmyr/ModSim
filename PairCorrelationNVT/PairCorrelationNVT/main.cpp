@@ -318,7 +318,6 @@ void calculate_distances(vector<double> box, vector<vector<double>> positions, i
             }
         }
     }
-    
 }
 
 void calculate_RAD(vector<double> box, vector<vector<double>> positions, int num){
