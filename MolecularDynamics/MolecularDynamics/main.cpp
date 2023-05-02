@@ -14,7 +14,7 @@
 
 using namespace std;
 
-const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/MolecularDynamics"};
+const string path {"/Users/georgesmyridis/Desktop/Trading/ModSim/MolecularDynamics"};
 const string init_filename = "xyz.dat";
 
 void print_vector(vector<vector<double>> pos){
