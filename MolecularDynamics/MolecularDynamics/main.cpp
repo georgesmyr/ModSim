@@ -448,6 +448,8 @@ public:
             update_velocities();
             // Update total energy
             total_energy = kinetic_energy + potential_energy;
+            //Update temperature
+            TEMPERATURE = 2 * kinetic_energy / 3;
             // Make future forces current
             for (auto i = 0; i < NPARTICLES; ++i){
                 for (auto j = 0; j < NDIM; ++j){
