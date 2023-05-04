@@ -560,9 +560,9 @@ int main(int argc, const char * argv[]) {
 
 //    generate_fcc();
     
-//    MolecularDynamics* MD1 = new MolecularDynamics("statistics_01_1_01_NVE", 0.1, 1, 0.1, false);
-//    MD1->run_simulation();
-//    delete(MD1);
+    MolecularDynamics* MD1 = new MolecularDynamics("statistics_01_1_01_NVE", 0.1, 1, 0.1, false);
+    MD1->run_simulation();
+    delete(MD1);
     
 //    MolecularDynamics* MD11 = new MolecularDynamics("statistics_01_1_01_NVT", 0.1, 1, 0.1, true);
 //    MD11->run_simulation();
@@ -588,9 +588,9 @@ int main(int argc, const char * argv[]) {
 //    MD4->run_simulation();
 //    delete(MD4);
 
-    MolecularDynamics* MD44 = new MolecularDynamics("statistics_085_1_01_NVT", 0.85, 1, 0.1, true);
-    MD44->run_simulation();
-    delete(MD44);
+//    MolecularDynamics* MD44 = new MolecularDynamics("statistics_085_1_01_NVT", 0.85, 1, 0.1, true);
+//    MD44->run_simulation();
+//    delete(MD44);
 
 //    MolecularDynamics* MD5 = new MolecularDynamics("statistics_12_1_01_NVE", 1.2, 1, 0.1, false);
 //    MD5->run_simulation();
