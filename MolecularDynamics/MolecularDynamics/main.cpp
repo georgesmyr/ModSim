@@ -558,7 +558,7 @@ MolecularDynamics::MolecularDynamics(string name, double density, double tempera
 int main(int argc, const char * argv[]) {
     dsfmt_seed(time(NULL));
 
-//    generate_fcc();
+    generate_fcc();
     
     MolecularDynamics* MD1 = new MolecularDynamics("statistics_01_1_01_NVE", 0.1, 1, 0.1, false);
     MD1->run_simulation();
