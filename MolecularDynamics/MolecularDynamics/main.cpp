@@ -28,9 +28,9 @@ void print_vector(vector<vector<double>> pos){
 }
 
 // Lattice parameters
-const int Nx = 2;
-const int Ny = 2;
-const int Nz = 2;
+const int Nx = 3;
+const int Ny = 3;
+const int Nz = 3;
 const double d = 1.0; // Atomic radius
 const double l = 2 * d; // Lattice spacing for FCC lattice
 
@@ -91,10 +91,14 @@ private:
     
     const int NDIM = 3; // Number of spatial dimensions
     double TEMPERATURE = 1; // Instantaneous temperature
-    const double DENSITY = 0.1; // Density of the system
+    double FIXED_TEMPERATURE = 1; // Fixed temperature for NVT ensemble
+    double DENSITY = 3; // Density of the system
+    double NU = 0.1; // Frequency of stochastic collisions
+    bool NVT = false;
+    string NAME = "statistics";
 
-    const double TMAX = 1000; // Maximum time
-    const double DELTA_T = 0.001; // Time step
+    const double TMAX = 50; // Maximum time
+    const double DELTA_T = 0.0001; // Time step
     double time = 0; // Current time
     
     double RCUT = 0;
@@ -105,35 +109,35 @@ private:
     const string IMPORT_PATH = path + "/positions/" + init_filename;
     const string STATISTICS_PATH = path + "/statistics/";
     
-    
     vector<double> box = {}; // Box parameters
     double NPARTICLES = 0;
-    
-public:
-
     vector<vector<double>> positions = {}; // Current positions
     
     vector<vector<double>> velocities = {}; // Current velocities
+    vector<vector<double>> init_velocities = {}; // Initial velocities
     vector<double> total_momentum = {0, 0, 0}; // Total momentum of the system
     vector<double> total_momentum_pp = {0, 0, 0}; // Total momentum per particle
     
     vector<vector<double>> forces = {}; // Total force acting on each particle at current position
     vector<vector<double>> forcesP = {}; // Total force acting on each particle at future position
-
     
     double kinetic_energy = 0; // Aggregate kinetic energy of all particles
     double kinetic_energy_pp = 0; // Kinetic energy per particle
     double potential_energy = 0; // Aggregate potential energy of all particles
-    double potential_energy_pp = 0; // Potential energy per particle
     double total_energy = 0; // Aggregate total energy
-    double total_energy_pp = 0; // Total energy per particle
+    double velo_autocor = 0; // Velocity autocorrelation
+    double diffusion_coef = 0; // Self diffusion coefficient
+
     
-    void print_energies(){
+public:
+    
+    void print_statistics(){
         
         cout << "-----------------------------" << endl;
         cout << "Kinetic energy: " << kinetic_energy << endl;
         cout << "Potential energy: " << potential_energy << endl;
         cout << "Total energy: " << total_energy << endl;
+        cout << "Instantaneous temperature: " << TEMPERATURE << endl;
     }
     
     void import_positions(){
@@ -157,7 +161,7 @@ public:
             positions.push_back(position);
         }
         infile.close();
-        assert (NPARTICLES == positions.size());
+//        assert (NPARTICLES == positions.size());
     }
     
     //INITIALISE CONFIGURATION//
@@ -165,7 +169,7 @@ public:
         /*
          DESCRIPTION: Sets RCUT and ECUT
          */
-        RCUT = MAX_DISTANCE / 2;
+        RCUT = MAX_DISTANCE / 4;
         ECUT = 4 * (pow(RCUT, -12) - pow(RCUT, -6));
         cout << " - RCUT: " << RCUT << endl;
         cout << " - ECUT: " << ECUT << endl;
@@ -235,6 +239,7 @@ public:
         for (auto i = 0; i < NPARTICLES; ++i){
             vector<double> velocity = {2 * (dsfmt_genrand() - 0.5), 2 * (dsfmt_genrand() - 0.5), 2 * (dsfmt_genrand() - 0.5)};
             velocities.push_back(velocity);
+            init_velocities.push_back(velocity);
 
             for (auto j = 0; j < 3; ++j){
                 // Calculate total momentum
@@ -256,13 +261,14 @@ public:
             }
         }
         kinetic_energy /= 2;
-        double scale_factor = sqrt(1.5 * TEMPERATURE / kinetic_energy);
+        kinetic_energy_pp = kinetic_energy / NPARTICLES;
+        double scale_factor = sqrt(1.5 * TEMPERATURE / kinetic_energy_pp);
         for (auto i = 0; i < NPARTICLES; ++i){
             for (auto j = 0; j < NDIM; ++j){
                 velocities[i][j] *= scale_factor;
             }
         }
-        kinetic_energy = 1.5 * TEMPERATURE;
+        kinetic_energy = 1.5 * TEMPERATURE * NPARTICLES;
              
         cout << "Velocities initialised." << endl;
         cout << "-----------------------------" << endl;
@@ -282,13 +288,13 @@ public:
         }
         cout << "Forces initialised." << endl;
         cout << "-----------------------------" << endl;
-        assert(velocities.size() == NPARTICLES);
-        assert(forces.size() == NPARTICLES);
-        assert(forcesP.size() == NPARTICLES);
+//        assert(velocities.size() == NPARTICLES);
+//        assert(forces.size() == NPARTICLES);
+//        assert(forcesP.size() == NPARTICLES);
         cout << "CONFIGURATION INITIALISED!" << endl;
         
         total_energy = potential_energy + kinetic_energy;
-        print_energies();
+        print_statistics();
     }
     
     double distance(unsigned int index1, unsigned int index2){
@@ -340,10 +346,10 @@ public:
                        dist_vec[i] += box[i];
                    }
                    dist += pow(dist_vec[i], 2);
-                   assert(dist_vec[i] >= - box[i] and dist_vec[i] <= box[i]);
+//                   assert(dist_vec[i] >= - box[i] and dist_vec[i] <= box[i]);
                }
                dist = sqrt(dist);
-               assert(dist >= 0 and dist <= MAX_DISTANCE);
+//               assert(dist >= 0 and dist <= MAX_DISTANCE);
                
             //Calculate unitary vector in displacement direction
                for (auto i = 0; i < NDIM; ++i){
@@ -361,7 +367,7 @@ public:
                potential_energy += 4 * (pow(dist, -12) - pow(dist, -6)) - ECUT;
            }
        }
-       assert(forcesP.size() == NPARTICLES);
+//       assert(forcesP.size() == NPARTICLES);
    }
     
     
@@ -377,25 +383,22 @@ public:
             total_momentum[i] = 0;
         }
 
-        double x_j = 0; // Temporary value for the position component along j direction
-        unsigned long multiple {0};
+        double remainder = 0; //
         for (auto i = 0; i < NPARTICLES; ++i){
             for (auto j = 0; j < NDIM; ++j){
                 // Update positions
                 positions[i][j] += velocities[i][j] * DELTA_T + pow(DELTA_T, 2) * forces[i][j] / 2;
-                x_j = positions[i][j];
-                if (positions[i][j] > box[j]){
-                    multiple = (unsigned long)(x_j / box[j]);
-                    positions[i][j] = x_j - multiple * box[j];
-                }else if(positions[i][j] < 0){
-                    multiple = (unsigned long)(abs(x_j) / box[j]);
-                    positions[i][j] = x_j + (multiple + 1) * box[j];
-
+                remainder = fmod(positions[i][j], box[j]);
+                if (remainder > 0){
+                    positions[i][j] = remainder;
+                }else if(remainder < 0){
+                    positions[i][j] = box[j] + remainder;
                 }
-                assert(positions[i][j] >= 0 and positions[i][j] <= box[j]);
+//                assert(positions[i][j] >= 0 and positions[i][j] <= box[j]);
             }
         }
     }
+    
     
     void update_velocities(){
         /*
@@ -416,28 +419,83 @@ public:
             }
         }
         kinetic_energy /= 2;
+        kinetic_energy_pp = kinetic_energy / NPARTICLES;
+    }
+    
+    double gaussian_rand()
+    {
+        static unsigned int hasSpare = 0;
+        static double spare;
+        static double u, v, s;
+        double sigma = sqrt(FIXED_TEMPERATURE);
+        
+        if(hasSpare)
+        {
+            hasSpare = 0;
+            return sigma * spare;
+        }
+        hasSpare = 1;
+        do
+        {
+            u = 2 * dsfmt_genrand() - 1;
+            v = 2 * dsfmt_genrand() - 1;
+            s = u*u + v*v;
+        }
+        while(s >= 1 || s == 0);
+        s = sqrt(-2.0 * log(s) / s);
+        spare = v*s;
+        return sigma * u*s;
+    }
+    
+    void andersen_thermostat(){
+        
+        for (auto i = 0; i < NPARTICLES; ++i){
+            if (dsfmt_genrand() < NU * DELTA_T){
+                for (auto j = 0; j < NDIM; ++j){
+                    velocities[i][j] = gaussian_rand();
+                }
+            }
+        }
+        kinetic_energy = 0;
+        for (auto i = 0; i < NPARTICLES; ++i){
+            for (auto j = 0; j < NDIM; ++j){
+                kinetic_energy += pow(velocities[i][j], 2);
+            }
+        }
+        kinetic_energy /= 2;
+        kinetic_energy_pp = kinetic_energy / NPARTICLES;
+    }
+    
+    void calculate_diffusion_coef(){
+        
+        //Calculate current velocity autocorrelator
+        velo_autocor = 0;
+        for (auto i = 0; i < NPARTICLES; ++i){
+            for (auto j = 0; j < NDIM; ++j){
+                velo_autocor += init_velocities[i][j] * velocities[i][j];
+            }
+        }
+        velo_autocor /= NPARTICLES;
+        
+        // Aggregate to self diffusion coefficient
+        diffusion_coef += velo_autocor;
+        diffusion_coef *= DELTA_T / NDIM;
     }
     
     void run_simulation(){
         
-        // Open energies.csv file
-        ofstream outfile_en(STATISTICS_PATH + "energies.csv");
-        if (!outfile_en.is_open()) {
-            cerr << "Error: Unable to open output file" << endl;
-            return;
-        }
-        // Open diffusion.csv file
-        ofstream outfile_dif(STATISTICS_PATH + "diffusion.csv");
-        if (!outfile_dif.is_open()) {
+        // Open statistics.csv file
+        ofstream outfile(STATISTICS_PATH + NAME + ".csv");
+        if (!outfile.is_open()) {
             cerr << "Error: Unable to open output file" << endl;
             return;
         }
         
-        outfile_en << "time,kinetic_energy_pp,potential_energy_pp,total_energy_pp,temperature" << endl;
-        outfile_dif << "time," << endl;
+        outfile << "time,kinetic_energy_pp,potential_energy_pp,total_energy_pp,temperature,velo_autocor,diffusion_coef" << endl;
         
         // Initialise configuration
         time = 0;
+        //unsigned long counter = 1;
         InitConfig();
         while(time < TMAX){
             // Update positions
@@ -449,7 +507,7 @@ public:
             // Update total energy
             total_energy = kinetic_energy + potential_energy;
             //Update temperature
-            TEMPERATURE = 2 * kinetic_energy / 3;
+            TEMPERATURE = 2 * kinetic_energy_pp / 3;
             // Make future forces current
             for (auto i = 0; i < NPARTICLES; ++i){
                 for (auto j = 0; j < NDIM; ++j){
@@ -457,33 +515,90 @@ public:
                 }
             }
             
+            // Apply Andersen thermostat
+            if (NVT){
+                andersen_thermostat();
+                TEMPERATURE = 2 * kinetic_energy_pp / 3;
+            }
+            
+            // Calculate self diffusion coefficient
+            calculate_diffusion_coef();
+//            cout << "Velocity autocorrelator: " << velo_autocor << "| Diffusion coefficient: " << diffusion_coef << endl;
+            
             // Save energies
-            outfile_en << time << "," << kinetic_energy / NPARTICLES << "," << potential_energy / NPARTICLES << "," << total_energy / NPARTICLES;
-            outfile_en << "," << TEMPERATURE << endl;
-            
-            // Calculate and save self diffusion coefficient
-            
-            
+            outfile << time << "," << kinetic_energy_pp << "," << potential_energy / NPARTICLES << "," << total_energy / NPARTICLES;
+            outfile << "," << TEMPERATURE << "," << velo_autocor << "," << diffusion_coef << endl;
             
             // Update time
             time += DELTA_T;
         }
         
-        outfile_en.close();
-        outfile_dif.close();
-
+        outfile.close();
+        print_statistics();
     }
     
+    // OVERLOADED CONSTRUCTOR
+    MolecularDynamics(string name, double density, double temperature, double nu, bool nvt);
 };
 
+MolecularDynamics::MolecularDynamics(string name, double density, double temperature, double nu, bool nvt)
+: NAME{name}, DENSITY{density}, TEMPERATURE{temperature}, NU{nu}, NVT{nvt}{
+    cout << "-----------------------------" << endl;
+    cout << "Constructor called for: " << endl;
+    cout << "Name: " << NAME << endl;
+    cout << "Density: " << DENSITY << endl;
+    cout << "Temperature: " << TEMPERATURE << endl;
+    cout << "Nu: " << NU << endl;
+    cout << boolalpha << endl;
+    cout << "NVT: " << NVT << endl;
+    cout << "-----------------------------" << endl;
+}
 
 
 int main(int argc, const char * argv[]) {
     dsfmt_seed(time(NULL));
+
 //    generate_fcc();
-    MolecularDynamics md;
-    md.run_simulation();
-    md.print_energies();
+    
+//    MolecularDynamics* MD1 = new MolecularDynamics("statistics_01_1_01_NVE", 0.1, 1, 0.1, false);
+//    MD1->run_simulation();
+//    delete(MD1);
+    
+//    MolecularDynamics* MD11 = new MolecularDynamics("statistics_01_1_01_NVT", 0.1, 1, 0.1, true);
+//    MD11->run_simulation();
+//    delete(MD11);
+
+//    MolecularDynamics* MD2 = new MolecularDynamics("statistics_0025_125_01_NVE", 0.025, 1.25, 0.1, false);
+//    MD2->run_simulation();
+//    delete(MD2);
+
+//    MolecularDynamics* MD22 = new MolecularDynamics("statistics_0025_125_01_NVT", 0.025, 1.25, 0.1, true);
+//    MD22->run_simulation();
+//    delete(MD22);
+
+//    MolecularDynamics* MD3 = new MolecularDynamics("statistics_01_025_01_NVE", 0.1, 0.25, 0.1, false);
+//    MD3->run_simulation();
+//    delete(MD3);
+
+//    MolecularDynamics* MD33 = new MolecularDynamics("statistics_01_025_01_NVT", 0.1, 0.25, 0.1, true);
+//    MD33->run_simulation();
+//    delete(MD33);
+
+//    MolecularDynamics* MD4 = new MolecularDynamics("statistics_085_1_01_NVE", 0.85, 1, 0.1, false);
+//    MD4->run_simulation();
+//    delete(MD4);
+
+    MolecularDynamics* MD44 = new MolecularDynamics("statistics_085_1_01_NVT", 0.85, 1, 0.1, true);
+    MD44->run_simulation();
+    delete(MD44);
+
+//    MolecularDynamics* MD5 = new MolecularDynamics("statistics_12_1_01_NVE", 1.2, 1, 0.1, false);
+//    MD5->run_simulation();
+//    delete(MD5);
+//
+//    MolecularDynamics* MD55 = new MolecularDynamics("statistics_12_1_01_NVT", 1.2, 1, 0.1, true);
+//    MD55->run_simulation();
+//    delete(MD55);
 
     return 0;
 }
