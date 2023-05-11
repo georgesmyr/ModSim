@@ -17,17 +17,19 @@
 
 using namespace std;
 
-const string path = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/measurements/";
+const string path_spins = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/spins";
+const string path_meas = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/measurements/";
 
 class IsingModel{
 
 private:
     
     // Lattice parameters
-    int L = 30;
+    const int L = 30;
     int spins[30][30] = {0};
-    int J = 1;
-    double N = L * L;
+    const int J = 1;
+    const double N = L * L;
+    const int SWEEP = int(N);
     double TEMP = 2;
     double BETA = 1 / TEMP;
     
@@ -39,7 +41,8 @@ private:
     const unsigned long STEPS = 200000;
     
     // Output file
-    const string NAME = "measurement0";
+    const string NAME_MEAS = "measurement0";
+    const string NAME_SPINS = "spins";
     
 
 public:
@@ -65,6 +68,23 @@ public:
             cache[x] = result;
             return result;
         }
+    }
+    
+    void saveSpins(long step){
+        ofstream outf(path_spins + NAME_SPINS + to_string(step) + ".csv");
+        if (!outf.is_open()) {
+            cerr << "Error: Unable to open output file" << endl;
+        }
+        for (int i = 0; i < L; ++i){
+            for (int j = 0; j < L; ++j){
+                outf << spins[i][j];
+                if (j < L - 1){
+                    outf << ",";
+                }
+            }
+            outf << endl;
+        }
+        outf.close();
     }
     
     
@@ -123,7 +143,7 @@ public:
         initConfig();
         
         // Open output csv file
-        ofstream outfile(path + NAME + ".dat");
+        ofstream outfile(path_meas + NAME_MEAS + ".dat");
         if (!outfile.is_open()) {
             cerr << "Error: Unable to open output file" << endl;
         }
@@ -155,15 +175,12 @@ public:
                     magnetisation += 2 * spins[i][j];
                 }
             }
-            outfile << step / N << "," << energy / N << "," << magnetisation / N << endl;
+            if (step % SWEEP == 0){
+                outfile << step / N << "," << energy / N << "," << magnetisation / N << endl;
+                saveSpins(step);
+            }
         }
         outfile.close();
-    }
-    
-    
-    double autocorrilationTime(){
-        
-        return 0;
     }
     
     
