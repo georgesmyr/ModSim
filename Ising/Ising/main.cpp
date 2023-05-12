@@ -28,7 +28,7 @@ private:
     const int L = 30;
     int spins[30][30] = {0};
     const int J = 1;
-    double TEMP = 5.15;
+    double TEMP = 1;
     double BETA = 1 / TEMP;
     const double N = L * L;
     const int SWEEP = int(N);
@@ -39,7 +39,7 @@ private:
     int energy = 0;
     
     // Monte Carlo simulation parameters
-    const unsigned long STEPS = 2000000;
+    const unsigned long STEPS = 20000000;
     
     // Output file
     const string NAME_MEAS = "measurement_";
@@ -144,11 +144,11 @@ public:
         // Initialise first configuration
         initConfig();
         // Open output csv file
-        ofstream outfile(path_meas + NAME_MEAS + to_string(int(100 * TEMP)) + ".csv");
+        ofstream outfile(path_meas + NAME_MEAS + ".csv");
         if (!outfile.is_open()) {
             cerr << "Error: Unable to open output file" << endl;
         }
-        outfile << "sweep,energy,magnetisation" << endl;
+        outfile << "temperature,sweep,energy,magnetisation" << endl;
     
         // Repeat for #STEPS steps
         int i = 0, j = 0, energy_change = 0;
@@ -177,9 +177,11 @@ public:
             }
 //                cout << energy << endl;
             if (step % SWEEP == 0){
-                outfile << step / N << "," << energy << "," << magnetisation << endl;
+                outfile << TEMP << "," << step / N << "," << energy << "," << magnetisation << endl;
             }
         }
+        TEMP += 0.05;
+        BETA = 1 / TEMP;
         outfile.close();
     }
     
