@@ -17,7 +17,7 @@
 
 using namespace std;
 
-const string path_spins = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/spins";
+const string path_spins = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/spins/";
 const string path_meas = "/Users/georgesmyridis/Desktop/Trading/ModSim/Ising/measurements/";
 
 class IsingModel{
@@ -28,26 +28,28 @@ private:
     const int L = 30;
     int spins[30][30] = {0};
     const int J = 1;
+    double TEMP = 5.15;
+    double BETA = 1 / TEMP;
     const double N = L * L;
     const int SWEEP = int(N);
-    double TEMP = 2;
-    double BETA = 1 / TEMP;
+
     
     // Statistical quantities
     int magnetisation = 0;
     int energy = 0;
     
     // Monte Carlo simulation parameters
-    const unsigned long STEPS = 200000;
+    const unsigned long STEPS = 2000000;
     
     // Output file
-    const string NAME_MEAS = "measurement0";
+    const string NAME_MEAS = "measurement_";
     const string NAME_SPINS = "spins";
     
 
 public:
     
-    
+
+
     double cached_exp(double x) {
         // Define the four possible values of x.
         const double values[] = {J * 4.0, J * 8.0, J * 12.0, J * 16.0};
@@ -141,14 +143,12 @@ public:
         
         // Initialise first configuration
         initConfig();
-        
         // Open output csv file
-        ofstream outfile(path_meas + NAME_MEAS + ".dat");
+        ofstream outfile(path_meas + NAME_MEAS + to_string(int(100 * TEMP)) + ".csv");
         if (!outfile.is_open()) {
             cerr << "Error: Unable to open output file" << endl;
         }
         outfile << "sweep,energy,magnetisation" << endl;
-        
     
         // Repeat for #STEPS steps
         int i = 0, j = 0, energy_change = 0;
@@ -175,25 +175,32 @@ public:
                     magnetisation += 2 * spins[i][j];
                 }
             }
+//                cout << energy << endl;
             if (step % SWEEP == 0){
-                outfile << step / N << "," << energy / N << "," << magnetisation / N << endl;
-                saveSpins(step);
+                outfile << step / N << "," << energy << "," << magnetisation << endl;
             }
         }
         outfile.close();
     }
     
-    
+    // OVERLOADED CONSTRUCTOR
+//    IsingModel(double temperature){
+//        TEMP = temperature;
+//    }
+
 };
+
+//IsingModel::IsingModel(double temperature){
+//    cout << "Created Ising model for temperature = " << temperature << endl;
+//}
 
 int main(int argc, const char * argv[]) {
     
-//    dsfmt_seed(time(NULL)); // Initialise random seed
-    dsfmt_seed(10);
+    dsfmt_seed(time(NULL)); // Initialise random seed
     
-    IsingModel is;
-    is.run();
-
+    IsingModel* is = new IsingModel();
+    is->run();
+    delete(is);
 
     return 0;
 }
