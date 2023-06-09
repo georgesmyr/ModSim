@@ -18,23 +18,28 @@ const string path {"/Users/georgesmyridis/Desktop/Trading/ModSim/StructDet/SS2D/
 
 // FCC PARAMETERS
 const int NDIM = 2;
-int Nx {3}, Ny {3};
-const int N {2 * Nx * Ny};
-const double RADIUS = 1.0, LATTICE_SPACING = 4.0 * RADIUS;
+int Nx {10}, Ny {10}; //change also POSITIONS size!!!
+int N {2 * Nx * Ny};
+const double RADIUS = 1.0;
+const double DIAMETER = 2 * RADIUS;
+double LATTICE_SPACING = 4.0 * RADIUS;
 
 //SYSTEM VARIABLES
-double POSITIONS[18][4] = {{0}};
+double POSITIONS[200][4] = {{0}};
 double BOX[4] = {0};
 
 //POTENTIAL PARAMETERS
 const double THRESH1 {2 * RADIUS};
 const double LAMBDA {1.5};
 const double THRESH2 {LAMBDA * THRESH1};
-const double POTENTIAL {1};
+const double POTENTIAL {2};
 
 //MONTE CARLO SIMULATION PARAMETERS
-int STEPS {10000};
-double DELTA_MAX {0.1 * LATTICE_SPACING};
+int STEPS {30000};
+double BETA {1};
+const double DISPLACEMENT_FRACTION {0.05};
+double DELTA_MAX {DISPLACEMENT_FRACTION * LATTICE_SPACING};
+const unsigned int OUTPUT_STEPS {500};
 
 
 void generate_fcc(){
@@ -58,8 +63,12 @@ void generate_fcc(){
     
     cout << "Generating FCC..." << endl;
     int N {2 * Nx * Ny};
+    cout << N << endl;
     double Lx {Nx * LATTICE_SPACING};
     double Ly {Ny * LATTICE_SPACING};
+    
+    cout << Lx << endl;
+    cout << Ly << endl;
     
     ofstream outfile( path + "xy.dat");
     if (!outfile.is_open()) {
@@ -73,8 +82,8 @@ void generate_fcc(){
         
     for (int i {0}; i < Nx; i++){
         for (int j {0}; j < Ny; j++){
-            outfile << i * LATTICE_SPACING << " " << j * LATTICE_SPACING << " " << 0 << " " << RADIUS << endl;
-            outfile << (i + 0.5) * LATTICE_SPACING << " " << (j + 0.5) * LATTICE_SPACING << " " << 0 << " " << RADIUS << endl;
+            outfile << i * LATTICE_SPACING << " " << j * LATTICE_SPACING << " " << 0 << " " << DIAMETER << endl;
+            outfile << (i + 0.5) * LATTICE_SPACING << " " << (j + 0.5) * LATTICE_SPACING << " " << 0 << " " << DIAMETER << endl;
         }
     }
     cout << "FCC generated." << endl;
@@ -100,31 +109,6 @@ void read_data(){
     }
 }
 
-void print_positions(){
-    /*
-     DESCRIPTION: Prints out all the positions.
-     */
-    cout << "---- POSITIONS ----" << endl;
-    for(int i = 0; i < N; ++i){
-        cout << i << ") ";
-        for(int j = 0; j < NDIM; ++j){
-            cout << POSITIONS[i][j] << " ";
-        }
-        cout << endl;
-    }
-    cout << "----------------" << endl;
-}
-
-void print_box(){
-    /*
-     DESCRIPTION: Prints out the information of the box, i.e., dimensions and number of particles.
-     */
-    cout << "BOX: ";
-    for(int i = 0; i < 4; ++i){
-        cout << BOX[i] << " ";
-    }
-}
-
 double distance(unsigned int index1, unsigned int index2){
     /*
      DESCRIPTION: Returns the distance between the centers of two particles, given the boundary conditions of the box.
@@ -132,13 +116,14 @@ double distance(unsigned int index1, unsigned int index2){
      OUTPUT: The distance.
      */
 
-    double minD {0}, dist2 {0}, periodicFactor {0};
+    double minD {0}, dist2 {0}, factor {0};
     for (auto i {0}; i < NDIM; ++i){
         minD = POSITIONS[index1][i] - POSITIONS[index2][i];
-        periodicFactor = round(minD / BOX[i]);
-        minD -= periodicFactor * BOX[i];
+        factor = (int)(2.0 * minD /  BOX[i]);
+        minD -= factor * BOX[i];
         dist2 += minD * minD;
     }
+    
     return sqrt(dist2);
 }
 
@@ -148,7 +133,6 @@ double potential(unsigned int idx1, unsigned int idx2){
      */
     double dist {distance(idx1, idx2)};
     if(dist < THRESH1){
-        printf("(%d,%d) Distace = %f\n", idx1, idx2, dist);
         return INFINITY;
     }
     else if(dist < THRESH2){
@@ -159,7 +143,7 @@ double potential(unsigned int idx1, unsigned int idx2){
     }
 }
 
-double calc_energy_contr(unsigned int idx){
+double energy_contr(unsigned int idx){
     /*
      DESCRIPTION: Calculates the energy contribution for the particle idx.
      */
@@ -175,71 +159,124 @@ double calc_energy_contr(unsigned int idx){
     return contribution;
 }
 
-double calc_energy(){
-    /*
-     DESCRIPTION: Calculates the enrgy of the system.
-     */
-    double energy {0};
-    for(int i = 0; i < BOX[3] - 1; ++i){
-        for(int j = i + 1; j < BOX[3]; ++j){
-            energy += potential(i,j);
-        }
-        if(energy == INFINITY){
-            return energy;
-        }
-    }
-    return energy;
-}
-
 
 int move_particle(){
     
     
     //CHOOSE RANDOM PARTICLE
     int idx = (int)(dsfmt_genrand() * N);
-    cout << "Index: " << idx << endl;
-    for(int i = 0; i < NDIM; ++i){
-        cout << POSITIONS[idx][i] << " ";
-    }
     
-    //CALCULATE CANDIDATE POSITION FOR THE CHOSEN PARTICLE
-    double new_pos[4] = {0,0,0,1};
+    //CALCULATE CURRENT ENERGY CONTRIBUTION FRO MPARTICLE idx
+    double contr_before {energy_contr(idx)};
+    
+    //CALCULATE RANDOM DISPLACEMENTS AND CHANGE POSITION
+    double displacements[NDIM] = {0,0};
     for(auto i {0}; i < NDIM; ++i){
-        new_pos[i] = POSITIONS[idx][i] + (2 * dsfmt_genrand() - 1) * DELTA_MAX;
+        displacements[i] = (2 * dsfmt_genrand() - 1) * DELTA_MAX;
+        POSITIONS[idx][i] += displacements[i];
     
-        // ACCOUNT FOR PERIODIC BOUNDARY CONDITIONS
-        if(new_pos[i] < 0){
-            new_pos[i] += BOX[i];
-        }else if(new_pos[i] > BOX[i]){
-            new_pos[i] -= BOX[i];
+        //Account for periodic boundary conditions
+        if(POSITIONS[idx][i] < 0){
+            POSITIONS[idx][i] += BOX[i];
+        }else if(POSITIONS[idx][i] > BOX[i]){
+            POSITIONS[idx][i] -= BOX[i];
         }
-        assert(new_pos[i] >= 0 and new_pos[i] <= BOX[i]);
+        assert(POSITIONS[idx][i] >= 0 and POSITIONS[idx][i] <= BOX[i]);
     }
     
     //CALCULATE CHANGE IN ENERGY
-    double contr1 {calc_energy_contr(idx)};
-    double eb {calc_energy()};
-    //Change the position
+    double contr_after {energy_contr(idx)};
+    double dE {contr_after - contr_before};
+        
+    //ACCEPT OR REJECT MOVE
+    //Accept and return 1
+    if(dE != INFINITY and (dE <= 0 or dsfmt_genrand() < exp(- BETA * dE))){
+        return 1;
+    }
+    //Reject, reverse the displacements and return 0.
     for(int i = 0; i < NDIM; ++i){
-        POSITIONS[idx][i] = new_pos[i];
+        POSITIONS[idx][i] -= displacements[i];
+        
+        //Account for periodic boundary conditions
+        if(POSITIONS[idx][i] < 0){
+            POSITIONS[idx][i] += BOX[i];
+        }else if(POSITIONS[idx][i] > BOX[i]){
+            POSITIONS[idx][i] -= BOX[i];
+        }
+        assert(POSITIONS[idx][i] >= 0 and POSITIONS[idx][i] <= BOX[i]);
     }
     
-    double ea {calc_energy()};
-    double contr2 {calc_energy_contr(idx)};
-    cout << "Energy before: " << contr1 << endl;
-    cout << "Energy after: " << contr2 << endl;
-    cout << "DEE: " << contr2-contr1 << endl;
-    cout << "DE: " << ea - eb << endl;
-    
-    for(int i = 0; i < NDIM; ++i){
-        cout << POSITIONS[idx][i] << " ";
-    }cout << endl;
-            
-    
-    
+    return 0;
+}
 
-    
-    return 1;
+void check_overlaps(){
+    /*
+     DESCRIPTION: The function checks if there are overlaps between the particles.
+     */
+    for(int i = 0; i < N - 1; ++i){
+        for(int j = i + 1; j < N; ++j){
+            assert(distance(i,j) > 2 * RADIUS);
+        }
+    }
+}
+
+void write_data(unsigned int num){
+    /*
+     DESCRIPTION: This function writes the positions of the particles in a dat file named xy(num).dat.
+     */
+    ofstream outfile(path + "xy" + to_string(num) + ".dat");
+    if (!outfile.is_open()){
+        cerr << "Error: Unable to open output file." << endl;
+        return;
+    }
+        outfile << BOX[3] << endl;
+    for(int i = 0; i < 3; ++i){
+        outfile << BOX[i] << endl;
+    }
+    for(auto i = 0; i < N; ++i){
+        for(int j = 0; j < 4; ++j){
+            outfile << POSITIONS[i][j] << " ";
+        }
+        outfile << endl;
+    }
+    outfile.close();
+}
+
+void print_box(){
+    for(int i = 0; i < 4; ++i){
+        cout << BOX[i] << " ";
+    }
+    cout << endl;
+}
+
+void print_positions(){
+    for(int i = 0; i < N; ++i){
+        cout << i << ") ";
+        for(int j = 0; j < 4; ++j){
+            cout << POSITIONS[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+void set_packing_fraction(double packing_fraction){
+
+    double area {BOX[0] * BOX[1]};
+    double particle_area {M_PI * pow(RADIUS,2)};
+
+    double target_area = (BOX[3] * particle_area)/ packing_fraction;
+    double scale_factor = pow(target_area/area, 1.0/2.0);
+    cout << "Scale factor: " << scale_factor << endl;
+    for (int i {0}; i < BOX[3]; i++){
+        for (int j{0}; j < NDIM; j++){
+            POSITIONS[i][j] *= scale_factor;
+        }
+    }
+    for (int i{0}; i < NDIM; i++){
+        BOX[i] *= scale_factor;
+    }
+    LATTICE_SPACING *= scale_factor;
+    DELTA_MAX = DISPLACEMENT_FRACTION * LATTICE_SPACING;
 }
 
 
@@ -247,18 +284,22 @@ int main(int argc, const char * argv[]) {
     
     dsfmt_seed(time(NULL));
     //GENERATE FCC
-//    generate_fcc();
-    
-//    vector<vector<double>> positions = {};
-//    vector<double> box = {};
-//    read_data(&positions, &box);
-    
+    generate_fcc();
     read_data();
-    print_positions();
-    move_particle();
-    print_positions();
-    
-    
+    set_packing_fraction(0.5);
+    check_overlaps();
+
+    float accepted {0};
+    for(auto step = 0; step < STEPS; ++step){
+        accepted += move_particle();
+        check_overlaps();
+        if(step % OUTPUT_STEPS == 0){
+            printf("Acceptance ratio: %f\n", accepted / OUTPUT_STEPS);
+            write_data(step / OUTPUT_STEPS);
+            accepted = 0;
+        }
+    }
+
     
     
     
