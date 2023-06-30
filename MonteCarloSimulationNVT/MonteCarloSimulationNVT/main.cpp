@@ -19,7 +19,7 @@
 
 using namespace std;
 
-const string path {"/Users/georgesmyridis/Documents/Physics/Books-Notes/Graduate/Physics/Modeling_Simulations/Scripts/ModSim/MonteCarloSimulationNVT/results/"};
+const string path {"/Users/georgesmyridis/Desktop/Trading/ModSim/MonteCarloSimulationNVT/positions/"};
 const string init_filename = "xyz.dat";
 
 
@@ -325,7 +325,7 @@ int main(int argc, const char * argv[]) {
     read_data(init_filename, &box, &r);
     
     // Set packing fraction.
-    //set_packing_fraction(&box, &r);
+    set_packing_fraction(&box, &r);
 
     //Perform Monte Carlo Simulation.
     long unsigned n_particles = r.size();
